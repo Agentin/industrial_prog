@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  redis-node-1:
+    image: redis:7-alpine
+    container_name: redis-node-1
+    command: redis-server --cluster-enabled yes --cluster-node-timeout 5000 --appendonly yes
+    ports:
+      - "6379:6379"
+    networks:
+      - redis-net
+
+  redis-node-2:
+    image: redis:7-alpine
+    container_name: redis-node-2
+    command: redis-server --cluster-enabled yes --cluster-node-timeout 5000 --appendonly yes
+    ports:
+      - "6380:6379"
+    networks:
+      - redis-net
+
+  redis-node-3:
+    image: redis:7-alpine
+    container_name: redis-node-3
+    command: redis-server --cluster-enabled yes --cluster-node-timeout 5000 --appendonly yes
+    ports:
+      - "6381:6379"
+    networks:
+      - redis-net
+
+  redis-cluster-init:
+    image: redis:7-alpine
+    container_name: redis-cluster-init
+    depends_on:
+      - redis-node-1
+      - redis-node-2
+      - redis-node-3
+    entrypoint: >
+      sh -c "sleep 3 && 
+      echo 'yes' | redis-cli --cluster create 
+      redis-node-1:6379 redis-node-2:6379 redis-node-3:6379 
+      --cluster-replicas 0"
+    networks:
+      - redis-net
+
+networks:
+  redis-net:
+    driver: bridge

@@ -1,0 +1,7 @@
+global:
+  scrape_interval: 5s     # частота сбора метрик
+
+scrape_configs:
+  - job_name: 'tasks'
+    static_configs:
+      - targets: ['host.docker.internal:8082']   # для Windows/Mac; для Linux используйте localhost

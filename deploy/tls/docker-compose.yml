@@ -3,7 +3,7 @@ version: '3.8'
 services:
   auth:
     build:
-      context: ../..          # корень проекта
+      context: ../..
       dockerfile: services/auth/Dockerfile
     container_name: auth
     environment:
@@ -20,15 +20,18 @@ services:
     container_name: tasks
     environment:
       TASKS_PORT: 8082
-      AUTH_GRPC_ADDR: auth:50051    # обращение к контейнеру auth
+      AUTH_GRPC_ADDR: auth:50051
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: postgres
       DB_PASSWORD: postgres
       DB_NAME: tasksdb
+      REDIS_ADDR: redis:6379
+      INSTANCE_ID: tasks-1
     depends_on:
       - postgres
       - auth
+      - redis
     networks:
       - internal
     restart: unless-stopped
@@ -60,22 +63,18 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
-      - "8433:5432"
+      - "5432:5432"
     networks:
       - internal
     restart: unless-stopped
 
-redis:
-  image: redis:7-alpine
-  container_name: redis
-  ports:
-    - "6379:6379"
-  networks:
-    - internal
+  redis:
+    image: redis:7-alpine
+    container_name: redis 
+    networks:
+      - internal
+    restart: unless-stopped
 
-tasks:
-  environment:
-    REDIS_ADDR: redis:6379
 networks:
   internal:
     driver: bridge

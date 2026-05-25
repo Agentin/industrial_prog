@@ -31,6 +31,7 @@ func NewCachingTaskRepository(repo TaskRepository, redis *cache.RedisClient, log
 
 func (r *CachingTaskRepository) GetByID(ctx context.Context, id string) (service.Task, error) {
 	if r.redis == nil {
+		r.logger.Debug("redis client unavailable, using db directly")
 		return r.repo.GetByID(ctx, id)
 	}
 	key := fmt.Sprintf("tasks:task:%s", id)
@@ -40,9 +41,10 @@ func (r *CachingTaskRepository) GetByID(ctx context.Context, id string) (service
 		r.logger.Warn("redis get failed, fallback to db", zap.Error(err))
 	}
 	if hit {
-		r.logger.Debug("cache hit", zap.String("key", key))
+		r.logger.Debug("cache HIT", zap.String("key", key))
 		return task, nil
 	}
+	r.logger.Debug("cache MISS", zap.String("key", key))
 	task, err = r.repo.GetByID(ctx, id)
 	if err != nil {
 		return task, err
@@ -50,6 +52,8 @@ func (r *CachingTaskRepository) GetByID(ctx context.Context, id string) (service
 	ttl := time.Duration(r.ttlBase+rand.Intn(r.ttlJitter)) * time.Second
 	if err := r.redis.Set(ctx, key, task, ttl); err != nil {
 		r.logger.Warn("redis set failed", zap.Error(err))
+	} else {
+		r.logger.Debug("cached task", zap.String("key", key), zap.Duration("ttl", ttl))
 	}
 	return task, nil
 }

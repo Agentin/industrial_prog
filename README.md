@@ -19,7 +19,16 @@ deploy
         init.sql
         cert.pem
         key.pem 
-services 
+services
+    graphql
+        cmd
+            graphql
+                main.go 
+        graph
+            schema.go
+            schema.graphqls 
+        go.mod
+        gqlgen.yml 
     auth
         Dockerfile
         cmd

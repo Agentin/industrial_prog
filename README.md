@@ -56,6 +56,10 @@ services
                     middleware
                         auth.go
                 routes.go
+            repository
+                caching_repo.go
+                postgres_task_repo.go
+                task_repo.go
             service
                 tasks.go
 shared

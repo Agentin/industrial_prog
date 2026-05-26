@@ -41,10 +41,10 @@ func (r *CachingTaskRepository) GetByID(ctx context.Context, id string) (service
 		r.logger.Warn("redis get failed, fallback to db", zap.Error(err))
 	}
 	if hit {
-		r.logger.Debug("cache HIT", zap.String("key", key))
+		r.logger.Info("cache HIT", zap.String("key", key))
 		return task, nil
 	}
-	r.logger.Debug("cache MISS", zap.String("key", key))
+	r.logger.Info("cache MISS", zap.String("key", key))
 	task, err = r.repo.GetByID(ctx, id)
 	if err != nil {
 		return task, err

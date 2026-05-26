@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -14,9 +15,22 @@ import (
 
 // sanitizeString удаляет все HTML-теги из строки (простая защита от XSS)
 func sanitizeString(input string) string {
-	// Удаляем всё, что похоже на HTML-тег <...>
 	re := regexp.MustCompile(`<[^>]*>`)
 	return re.ReplaceAllString(input, "")
+}
+
+// getInstanceID возвращает ID текущего инстанса из переменной окружения
+func getInstanceID() string {
+	id := os.Getenv("INSTANCE_ID")
+	if id == "" {
+		id = "unknown"
+	}
+	return id
+}
+
+// setInstanceHeader устанавливает заголовок X-Instance-ID
+func setInstanceHeader(w http.ResponseWriter) {
+	w.Header().Set("X-Instance-ID", getInstanceID())
 }
 
 type createTaskRequest struct {
@@ -27,6 +41,8 @@ type createTaskRequest struct {
 
 func CreateTaskHandler(repo repository.TaskRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		setInstanceHeader(w)
+
 		var req createTaskRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "invalid JSON", http.StatusBadRequest)
@@ -36,7 +52,6 @@ func CreateTaskHandler(repo repository.TaskRepository) http.HandlerFunc {
 			http.Error(w, "title is required", http.StatusBadRequest)
 			return
 		}
-		// Санитизация
 		safeTitle := sanitizeString(req.Title)
 		safeDescription := sanitizeString(req.Description)
 
@@ -59,6 +74,8 @@ func CreateTaskHandler(repo repository.TaskRepository) http.HandlerFunc {
 
 func GetTasksHandler(repo repository.TaskRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		setInstanceHeader(w)
+
 		tasks, err := repo.GetAll(r.Context())
 		if err != nil {
 			http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
@@ -71,6 +88,8 @@ func GetTasksHandler(repo repository.TaskRepository) http.HandlerFunc {
 
 func GetTaskHandler(repo repository.TaskRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		setInstanceHeader(w)
+
 		id := strings.TrimPrefix(r.URL.Path, "/v1/tasks/")
 		if id == "" {
 			http.Error(w, "missing id", http.StatusBadRequest)
@@ -92,6 +111,8 @@ func GetTaskHandler(repo repository.TaskRepository) http.HandlerFunc {
 
 func UpdateTaskHandler(repo repository.TaskRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		setInstanceHeader(w)
+
 		id := strings.TrimPrefix(r.URL.Path, "/v1/tasks/")
 		if id == "" {
 			http.Error(w, "missing id", http.StatusBadRequest)
@@ -102,7 +123,6 @@ func UpdateTaskHandler(repo repository.TaskRepository) http.HandlerFunc {
 			http.Error(w, "invalid JSON", http.StatusBadRequest)
 			return
 		}
-		// Санитизация текстовых полей
 		if title, ok := updates["title"]; ok {
 			if str, ok := title.(string); ok {
 				updates["title"] = sanitizeString(str)
@@ -133,6 +153,8 @@ func UpdateTaskHandler(repo repository.TaskRepository) http.HandlerFunc {
 
 func DeleteTaskHandler(repo repository.TaskRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		setInstanceHeader(w)
+
 		id := strings.TrimPrefix(r.URL.Path, "/v1/tasks/")
 		if id == "" {
 			http.Error(w, "missing id", http.StatusBadRequest)
@@ -148,6 +170,8 @@ func DeleteTaskHandler(repo repository.TaskRepository) http.HandlerFunc {
 
 func SearchTasksHandler(repo repository.TaskRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		setInstanceHeader(w)
+
 		title := r.URL.Query().Get("title")
 		if title == "" {
 			http.Error(w, "missing title parameter", http.StatusBadRequest)
@@ -161,4 +185,12 @@ func SearchTasksHandler(repo repository.TaskRepository) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(tasks)
 	}
+}
+
+// HealthHandler – эндпоинт для проверки готовности и живости
+func HealthHandler(w http.ResponseWriter, r *http.Request) {
+	setInstanceHeader(w)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }

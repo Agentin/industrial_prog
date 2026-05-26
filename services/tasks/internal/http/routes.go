@@ -17,27 +17,27 @@ import (
 func NewRouter(repo repository.TaskRepository, authClient *grpcclient.AuthClient, logger *zap.Logger) http.Handler {
 	mux := http.NewServeMux()
 
-	// 1. Базовые middleware, оборачивающие весь маршрутизатор
+	// Базовые middleware
 	handler := sharedMW.RequestIDMiddleware(mux)
 	handler = sharedMW.SecurityHeadersMiddleware(handler)
 	handler = sharedMW.HTTPAccessLogMiddleware(logger)(handler)
 
-	// 2. Middleware для аутентификации и CSRF (это функции-обёртки)
-	authMW := authMiddleware.AuthMiddleware(authClient) // func(http.Handler) http.Handler
-	csrfMW := middleware.CSRFMiddleware                 // func(http.Handler) http.Handler
+	// Аутентификация и CSRF
+	authMW := authMiddleware.AuthMiddleware(authClient)
+	csrfMW := middleware.CSRFMiddleware
 
-	// 3. Создаём конечные обработчики, обёрнутые в нужные middleware
-	// Для методов, изменяющих состояние: аутентификация + CSRF
+	// Создаём обработчики с цепочками middleware
 	createHandler := authMW(csrfMW(http.HandlerFunc(handlers.CreateTaskHandler(repo))))
 	updateHandler := authMW(csrfMW(http.HandlerFunc(handlers.UpdateTaskHandler(repo))))
 	deleteHandler := authMW(csrfMW(http.HandlerFunc(handlers.DeleteTaskHandler(repo))))
-
-	// Для GET-запросов: только аутентификация (без CSRF)
 	getAllHandler := authMW(http.HandlerFunc(handlers.GetTasksHandler(repo)))
 	getOneHandler := authMW(http.HandlerFunc(handlers.GetTaskHandler(repo)))
 	searchHandler := authMW(http.HandlerFunc(handlers.SearchTasksHandler(repo)))
 
-	// 4. Добавляем маршруты с метриками
+	// Health endpoint – без аутентификации, но с заголовком X-Instance-ID
+	mux.HandleFunc("GET /health", handlers.HealthHandler)
+
+	// CRUD с метриками
 	mux.Handle("POST /v1/tasks", middleware.MetricsMiddleware("/v1/tasks")(createHandler))
 	mux.Handle("GET /v1/tasks", middleware.MetricsMiddleware("/v1/tasks")(getAllHandler))
 	mux.Handle("GET /v1/tasks/{id}", middleware.MetricsMiddleware("/v1/tasks/:id")(getOneHandler))
@@ -45,7 +45,7 @@ func NewRouter(repo repository.TaskRepository, authClient *grpcclient.AuthClient
 	mux.Handle("DELETE /v1/tasks/{id}", middleware.MetricsMiddleware("/v1/tasks/:id")(deleteHandler))
 	mux.Handle("GET /v1/tasks/search", middleware.MetricsMiddleware("/v1/tasks/search")(searchHandler))
 
-	// 5. Эндпоинт метрик (без аутентификации)
+	// Метрики Prometheus
 	mux.Handle("GET /metrics", promhttp.Handler())
 
 	return handler

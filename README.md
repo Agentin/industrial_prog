@@ -19,7 +19,16 @@ deploy
         init.sql
         cert.pem
         key.pem 
-services 
+services
+    graphql
+        cmd
+            graphql
+                main.go 
+        graph
+            schema.go
+            schema.graphqls 
+        go.mod
+        gqlgen.yml 
     auth
         Dockerfile
         cmd
@@ -152,8 +161,11 @@ Upstream `tasks_backend` с двумя серверами, балансиров�
 
 **2. Резолверы** – в `resolver.go`. Они напрямую работают с PostgreSQL (общий источник данных с REST tasks). Генерация выполнена командой `go run github.com/99designs/gqlgen init`.
 
-**3. Примеры запросов** (в Playground на http://localhost:8090):
-
+**3. Примеры запросов**
+**![здесь должен быть рисунок, честно](image/11_1.png)**
+**![здесь должен быть рисунок, честно](image/11_2.png)**
+**![здесь должен быть рисунок, честно](image/11_3.png)**
+**![здесь должен быть рисунок, честно](image/11_4.png)**
 **4. Инструкция запуска**  
 ```bash
 cd services/graphql

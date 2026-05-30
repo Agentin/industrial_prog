@@ -13,9 +13,11 @@ import (
 
 	"github.com/student/tech-ip-sem2/services/tasks/internal/grpcclient"
 	taskshttp "github.com/student/tech-ip-sem2/services/tasks/internal/http"
+	"github.com/student/tech-ip-sem2/services/tasks/internal/http/handlers"
 	"github.com/student/tech-ip-sem2/services/tasks/internal/repository"
 	"github.com/student/tech-ip-sem2/shared/cache"
 	"github.com/student/tech-ip-sem2/shared/logger"
+	"github.com/student/tech-ip-sem2/shared/rabbit"
 )
 
 func main() {
@@ -24,6 +26,7 @@ func main() {
 		panic(err)
 	}
 	defer log.Sync()
+	handlers.SetLogger(log)
 
 	tasksPort := os.Getenv("TASKS_PORT")
 	if tasksPort == "" {
@@ -34,7 +37,6 @@ func main() {
 		authGrpcAddr = "localhost:50051"
 	}
 
-	// Подключение к БД
 	dbHost := os.Getenv("DB_HOST")
 	if dbHost == "" {
 		dbHost = "localhost"
@@ -64,7 +66,6 @@ func main() {
 	}
 	defer repo.Close()
 
-	// Инициализация Redis клиента (опционально)
 	var redisClient *cache.RedisClient
 	redisAddr := os.Getenv("REDIS_ADDR")
 	if redisAddr == "" {
@@ -80,7 +81,6 @@ func main() {
 		redisClient = nil
 	}
 
-	// Оборачиваем репозиторий в кэширующий слой (если Redis доступен)
 	var finalRepo repository.TaskRepository = repo
 	if redisClient != nil {
 		finalRepo = repository.NewCachingTaskRepository(repo, redisClient, log)
@@ -89,7 +89,6 @@ func main() {
 		log.Warn("redis caching disabled")
 	}
 
-	// gRPC клиент к Auth
 	authClient, err := grpcclient.NewAuthClient(authGrpcAddr)
 	if err != nil {
 		log.Fatal("failed to create auth gRPC client", zap.Error(err))
@@ -97,7 +96,29 @@ func main() {
 	defer authClient.Close()
 	authClient.SetLogger(log)
 
-	router := taskshttp.NewRouter(finalRepo, authClient, log)
+	var rabbitPublisher *rabbit.Publisher
+	rabbitURL := os.Getenv("RABBIT_URL")
+	if rabbitURL == "" {
+		rabbitURL = "amqp://guest:guest@localhost:5672/"
+	}
+	queueName := os.Getenv("QUEUE_NAME")
+	if queueName == "" {
+		queueName = "task_events"
+	}
+	rabbitPublisher, err = rabbit.NewPublisher(rabbitURL, queueName)
+	if err != nil {
+		log.Warn("failed to connect to RabbitMQ, events disabled", zap.Error(err))
+		rabbitPublisher = nil
+	} else {
+		log.Info("RabbitMQ publisher connected", zap.String("queue", queueName))
+	}
+	defer func() {
+		if rabbitPublisher != nil {
+			rabbitPublisher.Close()
+		}
+	}()
+
+	router := taskshttp.NewRouter(finalRepo, authClient, log, rabbitPublisher)
 
 	server := &http.Server{
 		Addr:         ":" + tasksPort,

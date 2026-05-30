@@ -28,10 +28,13 @@ services:
       DB_NAME: tasksdb
       REDIS_ADDR: redis:6379
       INSTANCE_ID: tasks-1
+      RABBIT_URL: amqp://guest:guest@rabbitmq:5672/
+      QUEUE_NAME: task_events
     depends_on:
       - postgres
       - auth
       - redis
+      - rabbitmq
     networks:
       - internal
     restart: unless-stopped
@@ -70,7 +73,20 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: redis 
+    container_name: redis
+    networks:
+      - internal
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
     networks:
       - internal
     restart: unless-stopped

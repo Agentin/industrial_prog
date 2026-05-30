@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	github.com/go-redis/redis/v8 v8.11.5
+	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.12.3
 	github.com/prometheus/client_golang v1.23.2
 	github.com/streadway/amqp v1.1.0

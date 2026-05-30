@@ -15,7 +15,7 @@ import (
 	"github.com/student/tech-ip-sem2/shared/rabbit"
 )
 
-func NewRouter(repo repository.TaskRepository, authClient *grpcclient.AuthClient, logger *zap.Logger, publisher *rabbit.Publisher) http.Handler {
+func NewRouter(repo repository.TaskRepository, authClient *grpcclient.AuthClient, logger *zap.Logger, eventPublisher, jobPublisher *rabbit.Publisher) http.Handler {
 	mux := http.NewServeMux()
 
 	handler := sharedMW.RequestIDMiddleware(mux)
@@ -25,12 +25,13 @@ func NewRouter(repo repository.TaskRepository, authClient *grpcclient.AuthClient
 	authMW := authMiddleware.AuthMiddleware(authClient)
 	csrfMW := middleware.CSRFMiddleware
 
-	createHandler := authMW(csrfMW(handlers.CreateTaskHandler(repo, publisher)))
+	createHandler := authMW(csrfMW(handlers.CreateTaskHandler(repo, eventPublisher, logger)))
 	updateHandler := authMW(csrfMW(handlers.UpdateTaskHandler(repo)))
 	deleteHandler := authMW(csrfMW(handlers.DeleteTaskHandler(repo)))
 	getAllHandler := authMW(handlers.GetTasksHandler(repo))
 	getOneHandler := authMW(handlers.GetTaskHandler(repo))
 	searchHandler := authMW(handlers.SearchTasksHandler(repo))
+	createJobHandler := authMW(handlers.CreateJobHandler(jobPublisher, logger))
 
 	mux.HandleFunc("GET /health", handlers.HealthHandler)
 
@@ -40,6 +41,7 @@ func NewRouter(repo repository.TaskRepository, authClient *grpcclient.AuthClient
 	mux.Handle("PATCH /v1/tasks/{id}", middleware.MetricsMiddleware("/v1/tasks/:id")(updateHandler))
 	mux.Handle("DELETE /v1/tasks/{id}", middleware.MetricsMiddleware("/v1/tasks/:id")(deleteHandler))
 	mux.Handle("GET /v1/tasks/search", middleware.MetricsMiddleware("/v1/tasks/search")(searchHandler))
+	mux.Handle("POST /v1/jobs/process-task", middleware.MetricsMiddleware("/v1/jobs/process-task")(createJobHandler))
 	mux.Handle("GET /metrics", promhttp.Handler())
 
 	return handler

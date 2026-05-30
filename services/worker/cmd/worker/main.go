@@ -1,13 +1,12 @@
 package main
 
 import (
-	"encoding/json"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/streadway/amqp"
+	"github.com/student/tech-ip-sem2/services/worker/internal/consumer"
 )
 
 func main() {
@@ -15,55 +14,30 @@ func main() {
 	if amqpURL == "" {
 		amqpURL = "amqp://guest:guest@localhost:5672/"
 	}
-	queueName := os.Getenv("QUEUE_NAME")
-	if queueName == "" {
-		queueName = "task_events"
+	mainQueue := os.Getenv("JOB_QUEUE_NAME")
+	if mainQueue == "" {
+		mainQueue = "task_jobs"
 	}
+	dlqQueue := os.Getenv("DLQ_QUEUE_NAME")
+	if dlqQueue == "" {
+		dlqQueue = "task_jobs_dlq"
+	}
+	maxAttempts := 3
 
-	conn, err := amqp.Dial(amqpURL)
+	consumer, err := consumer.NewJobConsumer(amqpURL, mainQueue, dlqQueue, maxAttempts)
 	if err != nil {
-		log.Fatal("Failed to connect to RabbitMQ:", err)
+		log.Fatal("Failed to create consumer:", err)
 	}
-	defer conn.Close()
+	defer consumer.Close()
 
-	ch, err := conn.Channel()
+	err = consumer.Start()
 	if err != nil {
-		log.Fatal("Failed to open channel:", err)
+		log.Fatal("Failed to start consumer:", err)
 	}
-	defer ch.Close()
-
-	_, err = ch.QueueDeclare(queueName, true, false, false, false, nil)
-	if err != nil {
-		log.Fatal("Failed to declare queue:", err)
-	}
-
-	err = ch.Qos(1, 0, false)
-	if err != nil {
-		log.Fatal("Failed to set QoS:", err)
-	}
-
-	msgs, err := ch.Consume(queueName, "", false, false, false, false, nil)
-	if err != nil {
-		log.Fatal("Failed to register consumer:", err)
-	}
+	log.Println("Job worker started, waiting for messages...")
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		for d := range msgs {
-			var event map[string]interface{}
-			if err := json.Unmarshal(d.Body, &event); err != nil {
-				log.Printf("Invalid message: %v", err)
-				d.Nack(false, false)
-				continue
-			}
-			log.Printf("Received event: %v", event)
-			d.Ack(false)
-		}
-	}()
-
-	log.Println("Worker started, waiting for messages...")
 	<-stop
-	log.Println("Shutting down worker")
+	log.Println("Shutting down job worker")
 }

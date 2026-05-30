@@ -44,7 +44,7 @@ type createTaskRequest struct {
 	DueDate     string `json:"due_date"`
 }
 
-func CreateTaskHandler(repo repository.TaskRepository, publisher *rabbit.Publisher) http.HandlerFunc {
+func CreateTaskHandler(repo repository.TaskRepository, publisher *rabbit.Publisher, logger *zap.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		setInstanceHeader(w)
 
@@ -65,9 +65,7 @@ func CreateTaskHandler(repo repository.TaskRepository, publisher *rabbit.Publish
 			Done:        false,
 		}
 		if err := repo.Create(r.Context(), task); err != nil {
-			if globalLogger != nil {
-				globalLogger.Error("failed to create task", zap.Error(err))
-			}
+			logger.Error("failed to create task", zap.Error(err))
 			http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
 			return
 		}
@@ -78,13 +76,9 @@ func CreateTaskHandler(repo repository.TaskRepository, publisher *rabbit.Publish
 				"ts":      time.Now().UTC().Format(time.RFC3339),
 			}
 			if err := publisher.PublishJSON(event); err != nil {
-				if globalLogger != nil {
-					globalLogger.Warn("failed to publish event", zap.Error(err))
-				}
+				logger.Warn("failed to publish event", zap.Error(err))
 			} else {
-				if globalLogger != nil {
-					globalLogger.Info("event published", zap.String("task_id", task.ID))
-				}
+				logger.Info("event published", zap.String("task_id", task.ID))
 			}
 		}
 		w.Header().Set("Content-Type", "application/json")

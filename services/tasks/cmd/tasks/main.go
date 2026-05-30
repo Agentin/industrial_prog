@@ -96,29 +96,47 @@ func main() {
 	defer authClient.Close()
 	authClient.SetLogger(log)
 
-	var rabbitPublisher *rabbit.Publisher
+	var eventPublisher *rabbit.Publisher
 	rabbitURL := os.Getenv("RABBIT_URL")
 	if rabbitURL == "" {
 		rabbitURL = "amqp://guest:guest@localhost:5672/"
 	}
-	queueName := os.Getenv("QUEUE_NAME")
-	if queueName == "" {
-		queueName = "task_events"
+	eventQueue := os.Getenv("QUEUE_NAME")
+	if eventQueue == "" {
+		eventQueue = "task_events"
 	}
-	rabbitPublisher, err = rabbit.NewPublisher(rabbitURL, queueName)
+	eventPublisher, err = rabbit.NewPublisher(rabbitURL, eventQueue)
 	if err != nil {
-		log.Warn("failed to connect to RabbitMQ, events disabled", zap.Error(err))
-		rabbitPublisher = nil
+		log.Warn("failed to connect to RabbitMQ for events, events disabled", zap.Error(err))
+		eventPublisher = nil
 	} else {
-		log.Info("RabbitMQ publisher connected", zap.String("queue", queueName))
+		log.Info("RabbitMQ event publisher connected", zap.String("queue", eventQueue))
 	}
 	defer func() {
-		if rabbitPublisher != nil {
-			rabbitPublisher.Close()
+		if eventPublisher != nil {
+			eventPublisher.Close()
 		}
 	}()
 
-	router := taskshttp.NewRouter(finalRepo, authClient, log, rabbitPublisher)
+	var jobPublisher *rabbit.Publisher
+	jobQueue := os.Getenv("JOB_QUEUE_NAME")
+	if jobQueue == "" {
+		jobQueue = "task_jobs"
+	}
+	jobPublisher, err = rabbit.NewPublisher(rabbitURL, jobQueue)
+	if err != nil {
+		log.Warn("failed to connect to RabbitMQ for jobs, jobs disabled", zap.Error(err))
+		jobPublisher = nil
+	} else {
+		log.Info("RabbitMQ job publisher connected", zap.String("queue", jobQueue))
+	}
+	defer func() {
+		if jobPublisher != nil {
+			jobPublisher.Close()
+		}
+	}()
+
+	router := taskshttp.NewRouter(finalRepo, authClient, log, eventPublisher, jobPublisher)
 
 	server := &http.Server{
 		Addr:         ":" + tasksPort,

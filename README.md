@@ -254,7 +254,51 @@ go run ./cmd/graphql
 
 **![здесь должен быть рисунок, честно](image/15_3.png)**
 
-**7. Обновление** – остановить сервис, заменить бинарник, запустить. Откат аналогичен.
+## Описание процедуры обновления и отката 
+
+### Процедура обновления
+1. **Остановка текущего сервиса**  
+   ```bash
+   sudo systemctl stop tasks
+   ```
+
+2. **Создание резервной копии старого бинарника**  
+   ```bash
+   sudo mv /opt/tasks/tasks /opt/tasks/tasks.old
+   ```
+
+3. **Копирование нового бинарника** (предварительно собранного и переданного на сервер)  
+   ```bash
+   sudo cp /tmp/tasks_new /opt/tasks/tasks
+   sudo chown tasksuser:tasksuser /opt/tasks/tasks
+   sudo chmod 755 /opt/tasks/tasks
+   ```
+4. **Запуск сервиса с новой версией**  
+   ```bash
+   sudo systemctl start tasks
+   sudo systemctl status tasks   # проверка статуса
+   ```
+5. **Проверка работоспособности**  
+   ```bash
+   curl http://127.0.0.1:8082/health
+   ```
+### Процедура отката (если новая версия не работает)
+
+1. **Остановка сервиса**  
+   ```bash
+   sudo systemctl stop tasks
+   ```
+2. **Восстановление предыдущей версии**  
+   ```bash
+   sudo mv /opt/tasks/tasks.old /opt/tasks/tasks
+   ```
+3. **Перезапуск сервиса**  
+   ```bash
+   sudo systemctl start tasks
+   sudo systemctl status tasks
+   ```
+4. **Проверка** – снова выполнить `curl /health`, убедиться в восстановлении.
+
 
 # Практическое занятие №16: Деплой в Kubernetes (minikube)
 

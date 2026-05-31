@@ -3,98 +3,177 @@
 ## Структура проекта после всех изменений
 
 ```
-.github
-    workflows
-        ci.yml
-bin
-    tasks.exe
-    auuth.exe
-deploy
-    monitoring
-        prometheus.yml
-        docker-compose.yml
-    tls
-        docker-compose.yml
-        nginx.conf
-        init.sql
-        cert.pem
-        key.pem 
-services
-    graphql
-        cmd
-            graphql
-                main.go 
-        graph
-            schema.go
-            schema.graphqls 
-        go.mod
-        gqlgen.yml 
-    auth
-        Dockerfile
-        cmd
-            auth
-                main.go
-        internal
-            grpc
-                server.go
-            http
-                handlers
-                    login.go
-                    verify.go
-                routes.go
-            service
-                auth_test.go
-                auth.go
-    tasks
-        Dpkerfile
-        cmd
-            tasks
-                main.go
-        internal
-            metrics
-                metrics.go
-            grpcclient
-                client.go
-            http
-                middleware
-                    csrf.go
-                    metrics.go
-                handlers
-                    tasks_test.go
-                    tasks.go
-                    middleware
-                        auth.go
-                routes.go
-            repository
-                caching_repo.go
-                postgres_task_repo.go
-                task_repo.go
-            service
-                tasks.go
-shared
-    shared
-        logger
-            logger.go 
-    middleware
-        security.go
-        requestid.go
-        accesslog.go
-        grpclog.go
-    httpx
-        client.go
-pkg
-    api
-        auth
-            v1
-                auth.proto
-                auth.pb.go
-                auth_grpc.pb.go
-docs
-    pz17_api.md
-.dockerignore
-README.md
-go.mod
-go.sum
+│   .dockerignore
+│   go.mod
+│   go.sum
+│   README.md
+│   structure.txt
+│   tasks_linux
+│
+├───.github
+│   └───workflows
+│           ci.yml
+│
+├───bin
+│       auth
+│       tasks
+│
+├───deploy
+│   ├───k8s
+│   │       configmap.yaml
+│   │       deployment.yaml
+│   │       postgres-deployment.yaml
+│   │       postgres-init-configmap.yaml
+│   │       redis-deployment.yaml
+│   │       service.yaml
+│   │
+│   ├───lb
+│   │       docker-compose.yml
+│   │       nginx.conf
+│   │
+│   ├───monitoring
+│   │       docker-compose.yml
+│   │       prometheus.yml
+│   │
+│   ├───rabbit
+│   │       docker-compose.yml
+│   │
+│   ├───redis
+│   │       docker-compose.yml
+│   │
+│   └───tls
+│           cert.pem
+│           docker-compose.yml
+│           init.sql
+│           key.pem
+│           nginx.conf
+│
+├───docs
+│       pz17_api.md
+│
+├───etc
+│   └───systemd
+│       └───system
+│               tasks.service
+├───opt
+│   └───tasks
+│           .env
+│
+├───pkg
+│   └───api
+│       └───auth
+│           └───v1
+│                   auth.pb.go
+│                   auth.proto
+│                   auth_grpc.pb.go
+│
+├───services
+│   ├───auth
+│   │   │   Dockerfile
+│   │   │
+│   │   ├───cmd
+│   │   │   └───auth
+│   │   │           main.go
+│   │   │
+│   │   └───internal
+│   │       ├───grpc
+│   │       │       server.go
+│   │       │
+│   │       ├───http
+│   │       │   │   routes.go
+│   │       │   │
+│   │       │   └───handlers
+│   │       │           login.go
+│   │       │           verify.go
+│   │       │
+│   │       └───service
+│   │               auth.go
+│   │               auth_test.go
+│   │
+│   ├───graphql
+│   │   │   go.mod
+│   │   │   go.sum
+│   │   │   gqlgen.yml
+│   │   │
+│   │   ├───cmd
+│   │   │   └───graphql
+│   │   │           main.go
+│   │   │
+│   │   └───graph
+│   │           schema.go
+│   │           schema.graphqls
+│   │
+│   ├───tasks
+│   │   │   dockerfile
+│   │   │
+│   │   ├───client
+│   │   │   └───authclient
+│   │   │           client.go
+│   │   │
+│   │   ├───cmd
+│   │   │   └───tasks
+│   │   │           main.go
+│   │   │
+│   │   └───internal
+│   │       ├───grpcclient
+│   │       │       client.go
+│   │       │
+│   │       ├───http
+│   │       │   │   routes.go
+│   │       │   │
+│   │       │   ├───handlers
+│   │       │   │   │   jobs.go
+│   │       │   │   │   tasks.go
+│   │       │   │   │   tasks_test.go
+│   │       │   │   │
+│   │       │   │   └───middleware
+│   │       │   │           auth.go
+│   │       │   │
+│   │       │   └───middleware
+│   │       │           csrf.go
+│   │       │           metrics.go
+│   │       │
+│   │       ├───metrics
+│   │       │       metrics.go
+│   │       │       middleware.go
+│   │       │
+│   │       ├───repository
+│   │       │       caching_repo.go
+│   │       │       postgres_task_repo.go
+│   │       │       task_repo.go
+│   │       │
+│   │       └───service
+│   │               tasks.go
+│   │
+│   └───worker
+│       │   dockerfile
+│       │
+│       ├───cmd
+│       │   └───worker
+│       │           main.go
+│       │
+│       └───internal
+│           └───consumer
+│                   job_consumer.go
+│
+└───shared
+    ├───cache
+    │       redis_client.go
+    │
+    ├───httpx
+    │       client.go
+    │
+    ├───logger
+    │       logger.go
+    │
+    ├───middleware
+    │       accesslog.go
+    │       grpclog.go
+    │       requestid.go
+    │       security.go
+    │
+    └───rabbit
+            client.go
 ```
 # Практическое занятие №9: Распределённый кэш (Redis cluster)
 
@@ -313,9 +392,10 @@ go run ./cmd/graphql
 
 **4. Применение** – `kubectl apply -f ...`. Pod запущен.
 
-**5. Доступ** – через port-forward: `kubectl port-forward svc/tasks 8082:8082`. curl на `/health` успешен.
-
 **![здесь должен быть рисунок, честно](image/16_1.png)**
 
-**6. Масштабирование** – `kubectl scale deployment tasks --replicas=2` – поднимаются два пода.
+**5. Доступ** – через port-forward: `kubectl port-forward svc/tasks 8082:8082`. curl на `/health` успешен.
 
+**![здесь должен быть рисунок, честно](image/16_2.png)**
+
+**![здесь должен быть рисунок, честно](image/16_3.png)**

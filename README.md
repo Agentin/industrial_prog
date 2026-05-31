@@ -51,14 +51,6 @@
 ├───docs
 │       pz17_api.md
 │
-├───etc
-│   └───systemd
-│       └───system
-│               tasks.service
-├───opt
-│   └───tasks
-│           .env
-│
 ├───pkg
 │   └───api
 │       └───auth
